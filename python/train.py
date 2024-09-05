@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import transformers
 from accelerate import Accelerator, FullyShardedDataParallelPlugin
-from data import JsonDataset, tokenize_prompt, tokenize_conversion, tokenize_text_only
+from data import JsonDataset, tokenize_prompt, tokenize_conversion, tokenize_text_only, tokenize_conversion_lmflow
 from prompt_maker import PromptMaker
 import random
 import numpy as np
@@ -27,19 +27,21 @@ import time
 import shutil
 
 
-def get_dataset(json_data_dir: str, response_loss_only, tokenizer, max_length, sharegpt_format: bool, pretrain: bool):
+def get_dataset(json_data_dir: str, response_loss_only, tokenizer, max_length, sharegpt_format: bool, lmflow_format:bool, pretrain: bool):
+    assert not (sharegpt_format and lmflow_format), "CANNOT set lmflow_format and sharegpt_format simultaneously"
     if pretrain:
         print('preparing dataset')
         transform=partial(tokenize_text_only, response_loss_only=response_loss_only, max_length=max_length, tokenizer=tokenizer)
     elif sharegpt_format:
         transform=partial(tokenize_conversion, response_loss_only=response_loss_only, max_length=max_length, tokenizer=tokenizer)
-    else:
-        transform=partial(tokenize_prompt, response_loss_only=response_loss_only, max_length=max_length, tokenizer=tokenizer, prompt_maker=PromptMaker())
+    elif lmflow_format:
+        transform=partial(tokenize_conversion_lmflow, response_loss_only=response_loss_only, max_length=max_length, tokenizer=tokenizer)
 
     dataset=JsonDataset(json_data=json_data_dir, 
                                  shuffle=True, train=True,
                                  transform=transform,
-                                 chunk_long_text=pretrain)
+                                 chunk_long_text=pretrain,
+                                 lmflow_format=lmflow_format)
     return dataset
 
 
@@ -72,6 +74,7 @@ def load_data(
         tokenizer,
         max_length=args.max_length,
         sharegpt_format=args.sharegpt_format,
+        lmflow_format=args.lmflow_format,
         pretrain=args.pretrain
     )
     print(train_dataset)
@@ -82,6 +85,7 @@ def load_data(
         tokenizer,
         max_length=args.max_length,
         sharegpt_format=args.sharegpt_format,
+        lmflow_format=args.lmflow_format,
         pretrain=False
     )
 

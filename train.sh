@@ -10,8 +10,8 @@ model_and_tokenizer=openai-community/gpt2
 accelerate launch --config_file fsdp_config.yaml python/train.py \
     --model $model_and_tokenizer \
     --tokenizer-name $model_and_tokenizer \
-    --train-data data/train_\*.json \
-    --val-data data/val.json \
+    --train-data data_lmflow/train_\*.json \
+    --val-data data_lmflow/train_\*.json \
     --optimizer "name=adam, lr=1e-4, weight_decay=0.0" \
     --norm 0.25 \
     --bf16 \
@@ -19,6 +19,7 @@ accelerate launch --config_file fsdp_config.yaml python/train.py \
     --logging_conf_file conf/common.log_conf \
     --seed 1234 \
     --max-steps 50 \
+    --max-length 1024 \
     --epoch 1 \
     --diff_norm \
     --val_batch_size 4 \
@@ -26,5 +27,5 @@ accelerate launch --config_file fsdp_config.yaml python/train.py \
     --response_loss_only \
     --save_dir ./test_model/ \
     --global_batch_size 16 \
-    --sharegpt_format \
+    --lmflow-format \
     --micro_batch_size 4

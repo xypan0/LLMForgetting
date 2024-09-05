@@ -28,6 +28,8 @@ pip install -r requirements.txt
 --eval_frequency    evaluate on val data every k steps
 --save_dir          dir to save model
 --sharegpt_format   turn on if using chat data e.g. data/val.json
+--lmflow-format     turn on if using lmflow format data e.g. data_lmflow/*
+--max-length        the maximum input token length
 --global_batch_size
 --response_loss_only 
 --micro_batch_size 

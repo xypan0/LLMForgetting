@@ -152,6 +152,10 @@ def parse_argument(sys_argv):
         '--diff_norm', action='store_true',
         help='use norm of difference with base model')
 
+    parser.add_argument(
+        '--lmflow-format', action='store_true',
+        help='use lmflow format data')
+
     
     parser.add_argument(
         '--max-length', type=int,

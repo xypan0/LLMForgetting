@@ -34,6 +34,7 @@ class JsonDataset(Dataset):
             shuffle: bool = True,
             train=False,
             chunk_long_text=False,
+            lmflow_format=False
         ):
         
         json_filenames = glob.glob(json_data)
@@ -51,8 +52,13 @@ class JsonDataset(Dataset):
                 data = [i for i in jsonlines.Reader(open(fn))]
             else:
                 raise ValueError('Input File Is Either Json or Jsonline')
-            for d in data: d["source"] = idx
-            data_list.extend(data)
+            if lmflow_format:
+                contents=data['instances']
+                for d in contents: d["source"] = idx
+                data_list.extend(contents)
+            else:
+                for d in data: d["source"] = idx
+                data_list.extend(data)
         
         self.data=data_list
         # self.data=datasets.Dataset.from_list(data_list)
@@ -243,6 +249,54 @@ def tokenize_conversion(data_point: Dict = None,
             labels += [-100] * len(tokens)
         elif c['from'] == 'gpt':
             text = "###Assistant: " + c['value']
+            tokens = tokenizer(text, max_length=999999999999, 
+                        truncation=truncation, padding=padding, 
+                        add_special_tokens=True, )["input_ids"]
+
+            if len(tokens) == 0 or tokens[-1] != tokenizer.eos_token_id: 
+                tokens += [tokenizer.eos_token_id]
+            input_ids += tokens
+            labels += tokens
+        else:
+            raise NotImplementedError('Wrong from id in share gpt data')
+        if len(input_ids) >= max_length:
+            input_ids = input_ids[:max_length]
+            labels = labels[:max_length]
+            break
+
+
+    return {"input_ids": input_ids, "labels": copy.deepcopy(labels)}
+
+def tokenize_conversion_lmflow(data_point: Dict = None,
+    max_length: int = 256,
+    tokenizer = None,
+    prompt_maker = None,
+    response_loss_only: bool = True,
+    padding: Union[bool, str] = False,
+    truncation: bool = True,
+):
+    assert prompt_maker is None, "no need to use prompt maker"
+    assert tokenizer is not None, "please provide tokenizer"
+    # print(data_point)
+    # sharegpt data format
+    conversations = data_point['messages']
+    # assert conversations[0]['from'] == 'human' and len(conversations) %2 ==0, "check share gpt data format"
+
+    input_ids = []
+    labels = []
+    for c in conversations:
+
+        if c['role'] == 'user':
+            text = c['content']
+            tokens = tokenizer(text, max_length=999999999999, 
+                        truncation=truncation, padding=padding, 
+                        add_special_tokens=False, )["input_ids"]
+            # if len(tokens) == 0 or tokens[-1] != tokenizer.eos_token_id: 
+                # tokens += [tokenizer.eos_token_id]
+            input_ids += tokens
+            labels += [-100] * len(tokens)
+        elif c['role'] == 'assistant':
+            text = c['content']
             tokens = tokenizer(text, max_length=999999999999, 
                         truncation=truncation, padding=padding, 
                         add_special_tokens=True, )["input_ids"]
