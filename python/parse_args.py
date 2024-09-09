@@ -133,7 +133,7 @@ def parse_argument(sys_argv):
         help='Turn on wandb logging',
     )
     parser.add_argument(
-        '--norm', type=float, 
+        '--norm', type=float, default=None,
         help='Turn on l2 norm',
     )
     parser.add_argument(

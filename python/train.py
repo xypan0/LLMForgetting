@@ -233,13 +233,15 @@ def optimize(
             else: 
                 outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask)
                 act_loss=outputs.loss.clone()
-                sum_norm=torch.tensor([0])
+                # sum_norm=torch.tensor(0)#.to(accelerator.device)
 
             loss = outputs.loss / grad_accumulation_steps
             act_loss = act_loss / grad_accumulation_steps
             total_loss += accelerator.gather(act_loss).detach().cpu().mean()
-            total_norm += accelerator.gather(sum_norm).detach().cpu().mean()
-
+            if args.norm is not None:
+                total_norm += accelerator.gather(sum_norm).detach().cpu().mean()
+            else:
+                total_norm = 0
             accelerator.backward(loss, retain_graph=True)
 
         optimizer.step()
@@ -265,7 +267,10 @@ def optimize(
         
     if args.save_dir is not None:
         tokenizer=AutoTokenizer.from_pretrained(args.tokenizer_name)
-        save_model(accelerator, model.targetModule, tokenizer, args.save_dir)
+        if args.norm is not None:
+            save_model(accelerator, model, tokenizer, args.save_dir, True)
+        else:
+            save_model(accelerator, model, tokenizer, args.save_dir, False)
 
 
 def main():

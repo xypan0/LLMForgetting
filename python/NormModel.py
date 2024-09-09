@@ -8,8 +8,9 @@ class ModelWithLPNorm(torch.nn.Module):
         self.targetModule=targetModule
         self.lambda_for_norm=lambda_for_norm
         self.baseModule=baseModule
-        for param in self.baseModule.parameters():
-            param.requires_grad_(False)
+        if self.baseModule is not None:
+            for param in self.baseModule.parameters():
+                param.requires_grad_(False)
 
     def forward(self, *args, **kwargs):
 

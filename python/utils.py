@@ -98,17 +98,23 @@ def evaluate_and_logging(model, global_step, start_time, args, accelerator, val_
         }
         logging_stat_dict(stat_dict, prefix, suffix, args.use_wandb, accelerator)
 
-def save_model(accelerator, accelerate_model, tokenizer, save_dir, **kargs):
+def save_model(accelerator, accelerate_model, tokenizer, save_dir, norm=False, **kargs):
 
     accelerator.wait_for_everyone()
     accelerator.print(f"saving model at {save_dir} ...")
     unwrapped_model = accelerator.unwrap_model(accelerate_model)
+    print(unwrapped_model)
+    if norm:
+        unwrapped_model = unwrapped_model.targetModule
+    # print(accelerator.get_state_dict(unwrapped_model))
     unwrapped_model.save_pretrained(
         save_dir,
         is_main_process=accelerator.is_main_process,
         save_function=accelerator.save,
+        # state_dict=unwrapped_model.state_dict(),
         state_dict=accelerator.get_state_dict(accelerate_model),
-        # max_shard_size="2GB"
+        # state_dict=accelerator.get_state_dict(accelerate_model),
+        max_shard_size="2GB"
     )
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
