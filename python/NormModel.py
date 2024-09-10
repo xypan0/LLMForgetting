@@ -1,10 +1,11 @@
 import torch
 from torch import linalg as LA
 import copy
+from transformers import PreTrainedModel
 
-class ModelWithLPNorm(torch.nn.Module):
+class ModelWithLPNorm(PreTrainedModel):
     def __init__(self, targetModule, baseModule=None, lambda_for_norm=0.05,  *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(config=targetModule.config, *args, **kwargs)
         self.targetModule=targetModule
         self.lambda_for_norm=lambda_for_norm
         self.baseModule=baseModule

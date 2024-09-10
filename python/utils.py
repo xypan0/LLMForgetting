@@ -6,6 +6,7 @@ import time
 from tqdm.auto import tqdm as original_tqdm
 from functools import partial
 from NormModel import ModelWithLPNorm
+from torch.distributed.fsdp import FullyShardedDataParallel
 
 def make_tqdm(accelerator, list_data):
     tqdm = partial(original_tqdm, disable=not accelerator.is_local_main_process, position=0)
@@ -51,10 +52,10 @@ def evaluate(model, accelerator, data_loader, args):
         y_batch = y_batch# .cuda()
         attn_mask = attn_mask# .cuda()
 
-        if args.norm:
-            loss, norm, res = model(input_ids=x_batch, labels=y_batch, attention_mask=attn_mask, return_dict=True)
-        else:
-            loss = model(input_ids=x_batch, labels=y_batch, attention_mask=attn_mask, return_dict=True).loss
+        # if args.norm:
+            # loss, norm, res = model(input_ids=x_batch, labels=y_batch, attention_mask=attn_mask, return_dict=True)
+        # else:
+        loss = model(input_ids=x_batch, labels=y_batch, attention_mask=attn_mask, return_dict=True).loss
 
         sum_loss += accelerator.gather(loss).detach().cpu().mean()
 
@@ -98,23 +99,43 @@ def evaluate_and_logging(model, global_step, start_time, args, accelerator, val_
         }
         logging_stat_dict(stat_dict, prefix, suffix, args.use_wandb, accelerator)
 
-def save_model(accelerator, accelerate_model, tokenizer, save_dir, norm=False, **kargs):
+def save_model_(accelerator, accelerate_model, tokenizer, save_dir, norm=False, **kargs):
+
+    accelerator.wait_for_everyone()
+    accelerator.print(f"saving model at {save_dir} ...")
+    # unwrapped_model = accelerator.unwrap_model(accelerate_model)
+    # print(unwrapped_model)
+    # if norm:
+        # unwrapped_model = unwrapped_model.targetModule
+    # print(accelerator.get_state_dict(unwrapped_model))
+    with FullyShardedDataParallel.summon_full_params(accelerate_model, with_grads=False):
+        if norm:
+            unwrapped_model = accelerate_model.targetModule
+        print(unwrapped_model)
+        unwrapped_model.save_pretrained(
+            save_dir,
+            is_main_process=accelerator.is_main_process,
+            save_function=accelerator.save,
+            state_dict=unwrapped_model.state_dict(),
+            # state_dict=accelerator.get_state_dict(unwrapped_model),
+            # state_dict=accelerator.get_state_dict(accelerate_model),
+            max_shard_size="2GB"
+        )
+    accelerator.wait_for_everyone()
+    if accelerator.is_main_process:
+        tokenizer.save_pretrained(save_dir)
+
+def save_model(accelerator, accelerate_model, tokenizer, save_dir, **kargs):
 
     accelerator.wait_for_everyone()
     accelerator.print(f"saving model at {save_dir} ...")
     unwrapped_model = accelerator.unwrap_model(accelerate_model)
-    print(unwrapped_model)
-    if norm:
-        unwrapped_model = unwrapped_model.targetModule
-    # print(accelerator.get_state_dict(unwrapped_model))
     unwrapped_model.save_pretrained(
         save_dir,
         is_main_process=accelerator.is_main_process,
         save_function=accelerator.save,
-        # state_dict=unwrapped_model.state_dict(),
         state_dict=accelerator.get_state_dict(accelerate_model),
-        # state_dict=accelerator.get_state_dict(accelerate_model),
-        max_shard_size="2GB"
+        # max_shard_size="2GB"
     )
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:

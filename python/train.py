@@ -19,9 +19,11 @@ import sys
 import wandb
 from functools import partial
 from parse_args import parse_argument, parse_args_dict
-from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, AutoModelForCausalLM, AutoTokenizer
+from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
+from CustomModels.modeling_llama import LlamaForCausalLM
+
 from torch import linalg as LA
-from NormModel import ModelWithLPNorm
+# from NormModel import ModelWithLPNorm
 from utils import get_optimizer, evaluate_and_logging, make_tqdm, save_model, logging_stat_dict
 import time
 import shutil
@@ -111,40 +113,6 @@ def load_data(
 
     return train_loader, val_loader, stat_dict
 
-def norm(model, accelerator, lambda_=0.5):
-    # print(model.parameters())
-    # print(accelerator.process_index)
-    wd=2*lambda_
-    total_l=0.
-    for p in model.parameters():
-        # print(p, p.shape[0])
-        if p.shape[0]:
-            res=lambda_*(LA.vector_norm(p)**2)
-            # print(res)
-            # res.backward()
-            # accelerator.backward(res)
-            total_l+=res
-            # p.grad.add_(wd*p)
-    # print(optimizer.state_dict())
-    return total_l
-
-def norm_backward(model, accelerator, lambda_=0.5):
-    su=0
-    for p in model.parameters():
-        if p.shape[0]:
-            res=lambda_*(LA.vector_norm(p)**2)
-            su+=res
-            # accelerator.backward(res)
-    # accelerator.backward(su)
-    if accelerator.is_main_process:
-        print(su)
-        print('bkw')
-
-def norm_add(model, accelerator, lambda_=0.5):
-    wd=2*lambda_
-    for p in model.parameters():
-        if p.shape[0]:
-            p.grad.add_(wd*p)
 
 def optimize(
         train_loader,
@@ -164,20 +132,9 @@ def optimize(
     accelerator.print(f'max_steps: {max_steps}, grad_accu_steps: {grad_accumulation_steps}')
 
     if args.bf16:
-        model = AutoModelForCausalLM.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16)
+        model = LlamaForCausalLM.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16)
     else:
-        model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32)
-
-    if args.norm is not None:
-        if args.diff_norm:
-            print('using diff_norm')
-            if args.bf16:
-                base_model = AutoModelForCausalLM.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16)
-            else:
-                base_model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32)
-            model=ModelWithLPNorm(targetModule=model, baseModule=base_model, lambda_for_norm=args.norm)
-        else:
-            model=ModelWithLPNorm(targetModule=model, lambda_for_norm=args.norm)
+        model = LlamaForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32)
 
     print(optimizer_args_dict)
     optimizer = get_optimizer(model.parameters(), optimizer_args_dict)
@@ -221,28 +178,25 @@ def optimize(
                 train_iterator = iter(train_loader)
                 batch = next(train_iterator)
 
-            # print(batch)
             batch.to(accelerator.device)
             x_batch=batch['input_ids']
             y_batch=batch['labels']
             attn_mask=batch['attention_mask']
 
             if args.norm is not None:
-                act_loss, sum_norm, outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask)
-                
+                outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask, norm=args.norm)
+                loss = (outputs.loss + args.norm * outputs.norm) / grad_accumulation_steps
+                total_loss += accelerator.gather(outputs.loss.clone()).detach().cpu().mean()
+                accelerator.backward(loss)
+                total_norm = accelerator.gather(outputs.norm).detach().cpu().mean()
+
             else: 
                 outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask)
-                act_loss=outputs.loss.clone()
-                # sum_norm=torch.tensor(0)#.to(accelerator.device)
-
-            loss = outputs.loss / grad_accumulation_steps
-            act_loss = act_loss / grad_accumulation_steps
-            total_loss += accelerator.gather(act_loss).detach().cpu().mean()
-            if args.norm is not None:
-                total_norm += accelerator.gather(sum_norm).detach().cpu().mean()
-            else:
+                loss = outputs.loss / grad_accumulation_steps
+                total_loss += accelerator.gather(loss.clone()).detach().cpu().mean()
+                accelerator.backward(loss)
+                # total_norm = accelerator.gather(outputs.norm).detach().cpu().mean()
                 total_norm = 0
-            accelerator.backward(loss, retain_graph=True)
 
         optimizer.step()
         optimizer.zero_grad()
@@ -264,13 +218,10 @@ def optimize(
     if accelerator.is_main_process and args.save_dir is not None and os.path.exists(args.save_dir):
         accelerator.print(f"delete model at {args.save_dir} ...")
         shutil.rmtree(args.save_dir)
-        
+
     if args.save_dir is not None:
-        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer_name)
-        if args.norm is not None:
-            save_model(accelerator, model, tokenizer, args.save_dir, True)
-        else:
-            save_model(accelerator, model, tokenizer, args.save_dir, False)
+        tokenizer=transformers.AutoTokenizer.from_pretrained(args.tokenizer_name)
+        save_model(accelerator, model, tokenizer, args.save_dir)
 
 
 def main():
