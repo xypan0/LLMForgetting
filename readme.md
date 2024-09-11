@@ -2,7 +2,7 @@
 
 ## Install
 ```bash
-pip install -r requirements.txt
+pip install -U -r requirements.txt
 ```
 
 ## Run
@@ -13,6 +13,7 @@ pip install -r requirements.txt
 ## Arguments
 ```
 --model             model name or path (transformer compatible)
+--model-type        model type (current support Llama, Gemma2, Qwen2)
 --tokenizer-name    model name or path (transformer compatible)
 --train-data        can use wildcard for multiple files in a dir
 --val-data          can use wildcard for multiple files in a dir
@@ -37,6 +38,7 @@ pip install -r requirements.txt
 
 ## Notes
 - current version only support norm on model params, do not support diff_norm yet
+- use could set --norm to 0 to log the param norm during training
 - do not turn on cpu offload
 - if change model, also change fsdp_transformer_layer_cls_to_wrap in fsdp_config.yaml (GPT2Block for gpt2 and LlamaDecoderLayer for Llama)
 - default lr warmup ratio 0.03

@@ -80,7 +80,7 @@ def parse_argument(sys_argv):
 
     # Model parameters
     parser.add_argument(
-        '--model', type=str, default='Llama', choices=['Llama', 'Gemma2', 'Qwen2'], 
+        '--model-type', type=str, default='Llama', choices=['Llama', 'Gemma2', 'Qwen2'], 
         help=textwrap.dedent(
             '''
             Supported models:
@@ -88,6 +88,11 @@ def parse_argument(sys_argv):
               * Gemma2
               * Qwen2
             '''))
+    
+    # Model parameters
+    parser.add_argument(
+        '--model', type=str)
+    
     parser.add_argument(
         '--tokenizer-name', type=str, default=None,)
     

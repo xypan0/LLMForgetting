@@ -4,7 +4,9 @@ export CUDA_VISIBLE_DEVICES=4,5,6,7
 # export CUDA_VISIBLE_DEVICES=0
 export TOKENIZERS_PARALLELISM=true
 
-model_and_tokenizer=meta-llama/Meta-Llama-3.1-8B
+model_and_tokenizer=Qwen/Qwen2-7B
+# model_and_tokenizer=google/gemma-2-9b
+# model_and_tokenizer=meta-llama/Meta-Llama-3.1-8B
 # model_and_tokenizer=openai-community/gpt2
 
 accelerate launch --config_file fsdp_config.yaml python/train.py \
@@ -12,8 +14,10 @@ accelerate launch --config_file fsdp_config.yaml python/train.py \
     --tokenizer-name $model_and_tokenizer \
     --train-data data_lmflow/train_\*.json \
     --val-data data_lmflow/val.json \
-    --optimizer "name=sgd, lr=1e-4, weight_decay=0.0005" \
+    --optimizer "name=sgd, lr=1e-4, weight_decay=0.0" \
     --bf16 \
+    --norm 0.25 \
+    --model-type Qwen2 \
     --pseudo_random \
     --logging_conf_file conf/common.log_conf \
     --seed 1234 \

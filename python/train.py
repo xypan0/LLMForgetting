@@ -134,11 +134,11 @@ def optimize(
     accelerator.print(f'max_steps: {max_steps}, grad_accu_steps: {grad_accumulation_steps}')
 
     ChooseModel = None
-    if args.model == 'Llama':
+    if args.model_type == 'Llama':
         ChooseModel = LlamaForCausalLM
-    elif args.model == 'Gemma2':
+    elif args.model_type == 'Gemma2':
         ChooseModel = Gemma2ForCausalLM
-    elif args.model == 'Qwen2':
+    elif args.model_type == 'Qwen2':
         ChooseModel = Qwen2ForCausalLM
     else:
         raise ValueError(f'{args.model} not supported yet!')
@@ -214,7 +214,7 @@ def optimize(
         optimizer.zero_grad()
         stat_dict = {
             'train loss': total_loss,
-            'train norm': total_norm,
+            'param norm': total_norm,
             'step': step,
             'time': time.time() - start_time,
             'lr': lr_scheduler.get_lr()
