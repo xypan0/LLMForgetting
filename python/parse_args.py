@@ -80,22 +80,13 @@ def parse_argument(sys_argv):
 
     # Model parameters
     parser.add_argument(
-        '--model', type=str, default='googlenet',
+        '--model', type=str, default='Llama', choices=['Llama', 'Gemma2', 'Qwen2'], 
         help=textwrap.dedent(
             '''
             Supported models:
-              * linear
-              * alexnet
-              * resnet18
-              * resnet50
-              * googlenet
-              * vgg11_bn
-              * vgg13_bn
-              * vgg16
-              * vgg16_bn
-              * vgg19_bn
-              * hyperresnet18
-                (For the purpose of aligning settings with bilevel baselines)
+              * Llama
+              * Gemma2
+              * Qwen2
             '''))
     parser.add_argument(
         '--tokenizer-name', type=str, default=None,)

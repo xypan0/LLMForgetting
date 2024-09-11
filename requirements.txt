@@ -1,8 +1,8 @@
-torch
-transformers
-accelerate
+torch==2.3.0
+transformers==4.43.3
+accelerate==0.33.0
 datasets
 peft
 wandb
-flash-attn
+flash-attn==2.6.3
 tqdm

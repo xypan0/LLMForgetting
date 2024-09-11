@@ -19,8 +19,10 @@ import sys
 import wandb
 from functools import partial
 from parse_args import parse_argument, parse_args_dict
-from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, Qwen2ForCausalLM, Gemma2ForCausalLM
 from CustomModels.modeling_llama import LlamaForCausalLM
+from CustomModels.modeling_qwen2 import Qwen2ForCausalLM
+from CustomModels.modeling_gemma2 import Gemma2ForCausalLM
 
 from torch import linalg as LA
 # from NormModel import ModelWithLPNorm
@@ -131,10 +133,20 @@ def optimize(
         max_steps = args.max_steps
     accelerator.print(f'max_steps: {max_steps}, grad_accu_steps: {grad_accumulation_steps}')
 
-    if args.bf16:
-        model = LlamaForCausalLM.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16)
+    ChooseModel = None
+    if args.model == 'Llama':
+        ChooseModel = LlamaForCausalLM
+    elif args.model == 'Gemma2':
+        ChooseModel = Gemma2ForCausalLM
+    elif args.model == 'Qwen2':
+        ChooseModel = Qwen2ForCausalLM
     else:
-        model = LlamaForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32)
+        raise ValueError(f'{args.model} not supported yet!')
+
+    if args.bf16:
+        model = ChooseModel.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16)
+    else:
+        model = ChooseModel.from_pretrained(args.model, torch_dtype=torch.float32)
 
     print(optimizer_args_dict)
     optimizer = get_optimizer(model.parameters(), optimizer_args_dict)
