@@ -24,7 +24,7 @@ pip install -U -r requirements.txt
 --logging_conf_file conf/common.log_conf default mode. Do not modify unless necessary
 --seed              random seed
 --max-steps         if specified, will ignore dataset size and use this value as max optimization steps
-<!-- --diff_norm         if turned on, will use $\Vert\theta-\theta_0\Vert_2^2$ as penalty -->
+--diff_norm         if turned on, will use $\Vert\theta-\theta_0\Vert_2^2$ as penalty
 --val_batch_size    validation batch size
 --eval_frequency    evaluate on val data every k steps
 --save_dir          dir to save model
@@ -37,7 +37,6 @@ pip install -U -r requirements.txt
 ```
 
 ## Notes
-- current version only support norm on model params, do not support diff_norm yet
 - note there are different scripts to run baseline/norm and diff_norm. This is because of different fsdp config
 - to run diff_norm, use GPU with memory larger than 50 GB
 - uses could set --norm to 0 to log the param norm during training
