@@ -164,3 +164,4 @@ cython_debug/
 # project specific
 *.log
 test_model/
+res.txt

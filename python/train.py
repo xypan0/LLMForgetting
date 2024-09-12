@@ -148,6 +148,14 @@ def optimize(
     else:
         model = ChooseModel.from_pretrained(args.model, torch_dtype=torch.float32)
 
+    if args.diff_norm:
+        if args.bf16:
+            base_model = ChooseModel.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16) # .to(accelerator.device)
+        else:
+            base_model = ChooseModel.from_pretrained(args.model, torch_dtype=torch.float32) # .to(accelerator.device)
+        for p in base_model.parameters():
+            p.requires_grad_(False)
+
     print(optimizer_args_dict)
     optimizer = get_optimizer(model.parameters(), optimizer_args_dict)
     
@@ -196,7 +204,10 @@ def optimize(
             attn_mask=batch['attention_mask']
 
             if args.norm is not None:
-                outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask, norm=args.norm)
+                if args.diff_norm:
+                    outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask, norm=args.norm, base_model=base_model)
+                else:
+                    outputs = model(x_batch, labels=y_batch, attention_mask=attn_mask, norm=args.norm)
                 loss = (outputs.loss + args.norm * outputs.norm) / grad_accumulation_steps
                 total_loss += accelerator.gather(outputs.loss.clone()).detach().cpu().mean()
                 accelerator.backward(loss)

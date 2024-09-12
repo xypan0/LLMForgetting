@@ -38,8 +38,11 @@ pip install -U -r requirements.txt
 
 ## Notes
 - current version only support norm on model params, do not support diff_norm yet
-- use could set --norm to 0 to log the param norm during training
+- note there are different scripts to run baseline/norm and diff_norm. This is because of different fsdp config
+- to run diff_norm, use GPU with memory larger than 50 GB
+- uses could set --norm to 0 to log the param norm during training
 - do not turn on cpu offload
 - if change model, also change fsdp_transformer_layer_cls_to_wrap in fsdp_config.yaml (GPT2Block for gpt2 and LlamaDecoderLayer for Llama)
 - default lr warmup ratio 0.03
 - check data loading [here](python/data.py#L216)
+- if using wandb, export WANDB_API_KEY and set args --use_wandb, --wandb_project, --wandb_run_name. refer parse_args.py

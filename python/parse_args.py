@@ -133,7 +133,7 @@ def parse_argument(sys_argv):
         help='Turn on l2 norm',
     )
     parser.add_argument(
-        '--wandb_project', type=str, default='bilevel-optimization',
+        '--wandb_project', type=str, default='forgetting',
         help='Project name for wandb',
     )
     parser.add_argument(
