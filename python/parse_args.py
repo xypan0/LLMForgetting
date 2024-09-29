@@ -166,7 +166,10 @@ def parse_argument(sys_argv):
         '--sharegpt_format', action='store_true',
         help='Only use loss of response'
     )
-
+    parser.add_argument(
+        '--chat_template', type=str, default=None,
+        help='gemma or none'
+    )
     parser.add_argument(
         '--pretrain', action='store_true',
         help='Pretrain mode'

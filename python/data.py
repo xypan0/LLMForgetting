@@ -315,7 +315,7 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
             # print(text)
             tokens = tokenizer(text, max_length=999999999999, 
                         truncation=truncation, padding=padding, 
-                        add_special_tokens=True, )["input_ids"]
+                        add_special_tokens=False, )["input_ids"]
 
             if len(tokens) == 0 or tokens[-1] != tokenizer.eos_token_id: 
                 tokens += [tokenizer.eos_token_id]
