@@ -17,6 +17,15 @@ import jsonlines
 import multiprocessing
 from time import time
 
+CHAT_TEMPLATE = {
+    'gemma': {
+            'prefix': '<bos>',
+            'user': '<start_of_turn>user\n{content}<end_of_turn>',
+            'assistant': '<start_of_turn>model\n{content}<end_of_turn>'
+            }
+    }
+
+
 def flat_map_function(element):
     # Replace with your actual logic to return a list
     return [element, element * 2]
@@ -24,8 +33,6 @@ def flat_map_function(element):
 # Function to flatten the list
 def flatten(list_of_lists):
     return [item for sublist in list_of_lists for item in sublist]
-
-
 
 class JsonDataset(Dataset):
     def __init__(self,
@@ -274,6 +281,7 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
     response_loss_only: bool = True,
     padding: Union[bool, str] = False,
     truncation: bool = True,
+    chat_template: str = None,
 ):
     assert prompt_maker is None, "no need to use prompt maker"
     assert tokenizer is not None, "please provide tokenizer"
@@ -284,10 +292,15 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
 
     input_ids = []
     labels = []
-    for c in conversations:
+    for idx, c in enumerate(conversations):
 
         if c['role'] == 'user':
             text = c['content']
+            if chat_template is not None:
+                text = CHAT_TEMPLATE[chat_template]['user'].format(content=text)
+                if idx == 0:
+                    text = CHAT_TEMPLATE[chat_template]['prefix'] + text
+            # print(text)
             tokens = tokenizer(text, max_length=999999999999, 
                         truncation=truncation, padding=padding, 
                         add_special_tokens=False, )["input_ids"]
@@ -297,6 +310,9 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
             labels += [-100] * len(tokens)
         elif c['role'] == 'assistant':
             text = c['content']
+            if chat_template is not None:
+                text = CHAT_TEMPLATE[chat_template]['assistant'].format(content=text)
+            # print(text)
             tokens = tokenizer(text, max_length=999999999999, 
                         truncation=truncation, padding=padding, 
                         add_special_tokens=True, )["input_ids"]
@@ -346,19 +362,20 @@ def tokenize_text_only(data_point: Dict = None,
 if __name__ == '__main__':
 
     # data_file = "/home/panxingyuan/bilevel_llm/data/train/alpaca_data.json"
-    data_file = "/home/panxingyuan/bilevel_llm/test.jsonl"
+    data_file = "/home/panxingyuan/llm_forgetting/data_lmflow/val.json"
     tokenizer=AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B")
     print(tokenizer)
     shuffled_iterable_dataset = JsonDataset(
         data_file, 
         shuffle=True, 
-        train=True, 
-        chunk_long_text=True,
-        transform=partial(tokenize_text_only, tokenizer=tokenizer, max_length=128),
+        train=False, 
+        lmflow_format=True,
+        transform=partial(tokenize_conversion_lmflow, tokenizer=tokenizer, max_length=512, chat_template='gemma'),
     )
 
-    print(shuffled_iterable_dataset[-1])
-   
+    # print(shuffled_iterable_dataset[-1])
+    inp=tokenizer.decode(shuffled_iterable_dataset[-1]['input_ids'])
+    print(inp)
     # for i in range(100):
     #     print(f'----------------------------------------sample {i}--------------------------------------------')
     #     print(len(shuffled_iterable_dataset[i]['input_ids']))
