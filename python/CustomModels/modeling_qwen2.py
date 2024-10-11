@@ -1123,15 +1123,8 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
         sum_norm=0.
         if norm is not None:
             if base_model is not None:
-                # print(list(self.named_parameters()))
-                for param, param_base in zip(self.parameters(), base_model.parameters()):
-                    # print(param.device, param_base.device)
-                    # if param.shape[0] == 0: continue
-                    tmp = param_base.clone().to(param.device)
-                    # print(param.device, tmp.device)
-                    sum_norm += (LA.vector_norm(param-tmp)**2)
-                    del tmp
-                    # print(sum_norm)
+                for (p_name, param), (pbase_name, param_base) in zip(self.named_parameters(), base_model.named_parameters()):
+                    sum_norm += (LA.vector_norm(param-param_base)**2)
             else:
                 for param in self.parameters():
                     sum_norm += (LA.vector_norm(param)**2)

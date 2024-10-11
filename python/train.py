@@ -152,9 +152,9 @@ def optimize(
 
     if args.diff_norm:
         if args.bf16:
-            base_model = ChooseModel.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16) # .to(accelerator.device)
+            base_model = ChooseModel.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16).to(accelerator.device)
         else:
-            base_model = ChooseModel.from_pretrained(args.model, torch_dtype=torch.float32) # .to(accelerator.device)
+            base_model = ChooseModel.from_pretrained(args.model, torch_dtype=torch.float32).to(accelerator.device)
         for p in base_model.parameters():
             p.requires_grad_(False)
 
