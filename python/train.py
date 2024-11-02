@@ -226,8 +226,8 @@ def optimize(
         optimizer.step()
         optimizer.zero_grad()
         stat_dict = {
-            'train loss': total_loss,
-            'param norm': total_norm,
+            'train loss (without norm)': total_loss,
+            'param norm (without scaling)': total_norm,
             'step': step,
             'time': time.time() - start_time,
             'lr': lr_scheduler.get_lr()
