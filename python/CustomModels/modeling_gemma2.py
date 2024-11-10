@@ -1021,6 +1021,7 @@ class Gemma2ForCausalLM(Gemma2PreTrainedModel):
                     sum_norm += (LA.vector_norm(param-param_base)**2)
             else:
                 for param in self.parameters():
+                    # if param.requires_grad:
                     sum_norm += (LA.vector_norm(param)**2)
 
         if not return_dict:

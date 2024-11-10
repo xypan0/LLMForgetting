@@ -159,6 +159,10 @@ def parse_argument(sys_argv):
         help='number of partitions'
     )
     parser.add_argument(
+        '--clip_grad_norm', type=float,
+        help='clip grad norm'
+    )
+    parser.add_argument(
         '--response_loss_only', action='store_true',
         help='Only use loss of response'
     )
@@ -168,7 +172,7 @@ def parse_argument(sys_argv):
     )
     parser.add_argument(
         '--chat_template', type=str, default=None,
-        help='gemma or none'
+        help='lmflow chat template'
     )
     parser.add_argument(
         '--pretrain', action='store_true',

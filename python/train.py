@@ -29,6 +29,7 @@ from torch import linalg as LA
 from utils import get_optimizer, evaluate_and_logging, make_tqdm, save_model, logging_stat_dict
 import time
 import shutil
+import math
 
 
 def get_dataset(args, json_data_dir: str, response_loss_only, tokenizer, max_length, sharegpt_format: bool, lmflow_format:bool, pretrain: bool):
@@ -130,7 +131,7 @@ def optimize(
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     grad_accumulation_steps = grad_accumulation_steps // world_size
     if args.max_steps is None:
-        max_steps = len(train_loader.dataset) // args.global_batch_size * args.epoch
+        max_steps = math.ceil(len(train_loader.dataset) / args.global_batch_size * args.epoch)
     else:
         max_steps = args.max_steps
     accelerator.print(f'max_steps: {max_steps}, grad_accu_steps: {grad_accumulation_steps}')
@@ -161,7 +162,7 @@ def optimize(
     print(optimizer_args_dict)
     optimizer = get_optimizer(model.parameters(), optimizer_args_dict)
     
-    warmup_steps = int(args.warmup_ratio * max_steps)
+    warmup_steps = math.ceil(args.warmup_ratio * max_steps)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=warmup_steps,
@@ -222,15 +223,27 @@ def optimize(
                 accelerator.backward(loss)
                 # total_norm = accelerator.gather(outputs.norm).detach().cpu().mean()
                 total_norm = 0
+        
+        # clip_grad_norm = 1.0
+        if args.clip_grad_norm is not None:
+            grad_norm = accelerator.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
 
         optimizer.step()
         optimizer.zero_grad()
+        # ins = 0
+        # try:
+        #     print(model.model.layers[0].mlp.gate_proj.weight.shape)
+        #     ins = model.model.layers[0].mlp.gate_proj.weight[2]
+        # except:
+        #     pass
         stat_dict = {
             'train loss (without norm)': total_loss,
             'param norm (without scaling)': total_norm,
             'step': step,
             'time': time.time() - start_time,
-            'lr': lr_scheduler.get_lr()
+            'lr': lr_scheduler.get_last_lr()[0],
+            'grad_norm': grad_norm.detach().item(),
+            # 'ins': ins
         }
         logging_stat_dict(
             stat_dict,
@@ -281,7 +294,7 @@ def main():
     
     accelerator=Accelerator(mixed_precision='bf16',
                                 gradient_accumulation_steps=1) if args.bf16 else Accelerator(gradient_accumulation_steps=1, fsdp_plugin=fsdp_plugin)
-    print(accelerator.state.fsdp_plugin)
+    # print(accelerator.state.fsdp_plugin)
 
     # Runs optimization
     if args.use_wandb and accelerator.is_main_process:

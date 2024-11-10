@@ -16,15 +16,7 @@ from tqdm import tqdm
 import jsonlines
 import multiprocessing
 from time import time
-
-CHAT_TEMPLATE = {
-    'gemma': {
-            'prefix': '<bos>',
-            'user': '<start_of_turn>user\n{content}<end_of_turn>',
-            'assistant': '<start_of_turn>model\n{content}<end_of_turn>'
-            }
-    }
-
+from conversation_template import PRESET_TEMPLATES
 
 def flat_map_function(element):
     # Replace with your actual logic to return a list
@@ -33,6 +25,8 @@ def flat_map_function(element):
 # Function to flatten the list
 def flatten(list_of_lists):
     return [item for sublist in list_of_lists for item in sublist]
+
+
 
 class JsonDataset(Dataset):
     def __init__(self,
@@ -281,7 +275,35 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
     response_loss_only: bool = True,
     padding: Union[bool, str] = False,
     truncation: bool = True,
-    chat_template: str = None,
+    chat_template: str = 'llama3',
+):
+    assert prompt_maker is None, "no need to use prompt maker"
+    assert tokenizer is not None, "please provide tokenizer"
+
+    conversation_template = PRESET_TEMPLATES[chat_template]
+    encoded_conversation = conversation_template.encode_conversation(
+                tokenizer=tokenizer,
+                messages=data_point['messages'],
+                system=None,
+                tools=None,
+            )
+    input_ids, labels = [], []
+    for turn_idx, (user_input, assistant_result) in enumerate(encoded_conversation):
+        input_ids += user_input + assistant_result
+        
+        if not response_loss_only:
+            labels += user_input + assistant_result
+        else:
+            labels += [-100] * len(user_input) + assistant_result
+    return {"input_ids": input_ids[:max_length], "labels": labels[:max_length]}
+
+def tokenize_conversion_lmflow_(data_point: Dict = None,
+    max_length: int = 256,
+    tokenizer = None,
+    prompt_maker = None,
+    response_loss_only: bool = True,
+    padding: Union[bool, str] = False,
+    truncation: bool = True,
 ):
     assert prompt_maker is None, "no need to use prompt maker"
     assert tokenizer is not None, "please provide tokenizer"
@@ -292,15 +314,10 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
 
     input_ids = []
     labels = []
-    for idx, c in enumerate(conversations):
+    for c in conversations:
 
         if c['role'] == 'user':
             text = c['content']
-            if chat_template is not None:
-                text = CHAT_TEMPLATE[chat_template]['user'].format(content=text)
-                if idx == 0:
-                    text = CHAT_TEMPLATE[chat_template]['prefix'] + text
-            # print(text)
             tokens = tokenizer(text, max_length=999999999999, 
                         truncation=truncation, padding=padding, 
                         add_special_tokens=False, )["input_ids"]
@@ -310,12 +327,9 @@ def tokenize_conversion_lmflow(data_point: Dict = None,
             labels += [-100] * len(tokens)
         elif c['role'] == 'assistant':
             text = c['content']
-            if chat_template is not None:
-                text = CHAT_TEMPLATE[chat_template]['assistant'].format(content=text)
-            # print(text)
             tokens = tokenizer(text, max_length=999999999999, 
                         truncation=truncation, padding=padding, 
-                        add_special_tokens=False, )["input_ids"]
+                        add_special_tokens=True, )["input_ids"]
 
             if len(tokens) == 0 or tokens[-1] != tokenizer.eos_token_id: 
                 tokens += [tokenizer.eos_token_id]
@@ -362,20 +376,22 @@ def tokenize_text_only(data_point: Dict = None,
 if __name__ == '__main__':
 
     # data_file = "/home/panxingyuan/bilevel_llm/data/train/alpaca_data.json"
-    data_file = "/home/panxingyuan/llm_forgetting/data_lmflow/val.json"
-    tokenizer=AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B")
+    data_file = "/u/xpan2/projects/scalebio/LLM-Finetuning/data_lmflow/val.json"
+    tokenizer=AutoTokenizer.from_pretrained("Qwen/Qwen2-7B")
     print(tokenizer)
     shuffled_iterable_dataset = JsonDataset(
         data_file, 
         shuffle=True, 
-        train=False, 
+        train=True, 
         lmflow_format=True,
-        transform=partial(tokenize_conversion_lmflow, tokenizer=tokenizer, max_length=512, chat_template='gemma'),
+        transform=partial(tokenize_conversion_lmflow, tokenizer=tokenizer, max_length=128, chat_template='qwen2'),
     )
 
-    # print(shuffled_iterable_dataset[-1])
-    inp=tokenizer.decode(shuffled_iterable_dataset[-1]['input_ids'])
-    print(inp)
+    print(shuffled_iterable_dataset[-1])
+    print(tokenizer.decode(shuffled_iterable_dataset[-1]['input_ids']))
+    # print(tokenizer.decode(shuffled_iterable_dataset[-1]['labels']))
+
+   
     # for i in range(100):
     #     print(f'----------------------------------------sample {i}--------------------------------------------')
     #     print(len(shuffled_iterable_dataset[i]['input_ids']))
