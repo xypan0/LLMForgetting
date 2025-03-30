@@ -23,7 +23,7 @@ from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_wi
 from CustomModels.modeling_llama import LlamaForCausalLM
 from CustomModels.modeling_qwen2 import Qwen2ForCausalLM
 from CustomModels.modeling_gemma2 import Gemma2ForCausalLM
-
+from peft import LoraConfig, get_peft_model
 from torch import linalg as LA
 # from NormModel import ModelWithLPNorm
 from utils import get_optimizer, evaluate_and_logging, make_tqdm, save_model, logging_stat_dict
@@ -118,6 +118,30 @@ def load_data(
 
     return train_loader, val_loader, stat_dict
 
+def prepare_lora_model(model, args):
+
+    # ====== If LoRA not enabled, return original model ======
+    if not args.lora:
+        return model
+
+    # ====== Prepare LoRA config ======
+    lora_config = LoraConfig(
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        target_modules=args.lora_target_modules,
+        lora_dropout=args.lora_dropout,
+        bias=args.lora_bias,
+        task_type=args.lora_task_type
+    )
+
+    # ====== Apply LoRA ======
+    print(f"✅ Applying LoRA: r={args.lora_r}, alpha={args.lora_alpha}, target={args.lora_target_modules}")
+    model = get_peft_model(model, lora_config)
+
+    # Print trainable params
+    model.print_trainable_parameters()
+
+    return model
 
 def optimize(
         train_loader,
@@ -150,7 +174,9 @@ def optimize(
         model = ChooseModel.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16)
     else:
         model = ChooseModel.from_pretrained(args.model, torch_dtype=torch.float32)
-
+    
+    model = prepare_lora_model(model, args)
+    
     if args.diff_norm:
         if args.bf16:
             base_model = ChooseModel.from_pretrained(args.model, attn_implementation="flash_attention_2", torch_dtype=torch.bfloat16).to(accelerator.device)

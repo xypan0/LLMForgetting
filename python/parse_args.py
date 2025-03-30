@@ -100,9 +100,23 @@ def parse_argument(sys_argv):
         '--bf16', action='store_true',
         help='Whether use bf16 training')
     
+    # LoRA basic config
     parser.add_argument(
         '--lora', action='store_true',
         help='Whether use LoRA training')
+    parser.add_argument("--lora_r", type=int, default=8, help="LoRA rank")
+    parser.add_argument("--lora_alpha", type=float, default=16, help="LoRA alpha")
+    parser.add_argument("--lora_dropout", type=float, default=0.05, help="LoRA dropout")
+    parser.add_argument("--lora_target_modules", type=str, nargs="+", default=["q_proj", "v_proj"],
+                        help="Target modules to apply LoRA (space-separated list)")
+
+    # LoRA bias & task
+    parser.add_argument("--lora_bias", type=str, default="none", choices=["none", "all", "lora_only"],
+                        help="Whether to apply LoRA bias")
+    parser.add_argument("--lora_task_type", type=str, default="CAUSAL_LM",
+                        choices=["CAUSAL_LM", "SEQ_CLS", "TOKEN_CLS", "QUESTION_ANSWERING"],
+                        help="Task type for PEFT")
+    
     parser.add_argument(
         '--lisa', action='store_true',
         help='Whether use Lisa training')

@@ -32,5 +32,14 @@ python3 python/train.py \
     --response_loss_only \
     --save_dir ./test_model/ \
     --global_batch_size 2 \
+    --chat_template llama3 \
+    --lora_r 32 \
+    --lora_alpha 32 \
+    --lora_dropout 0.01 \
+    --lora_target_modules "q_proj", "v_proj" \
+    --lora_bias "none" \
+    --lora_task_type CAUSAL_LM \
+    --clip_grad_norm 1.0 \
+    --lora \
     --lmflow-format \
     --micro_batch_size 1
